@@ -81,10 +81,17 @@ tbody td a:hover{text-decoration:underline;color:var(--accent)}
 .loader-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px;gap:12px;color:var(--muted);font-size:.86rem}
 .spinner{width:32px;height:32px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:#fff3f3;border:1px solid #f5c6c6;border-radius:8px;padding:20px 24px;margin:16px;color:#c0392b;font-size:.83rem;line-height:1.7}
+.error-box strong{display:block;font-size:.95rem;margin-bottom:8px}
+.error-box ol{margin-left:18px;margin-top:6px}
+.error-box li{margin-bottom:4px}
+.btn-retry{margin-top:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:7px 18px;font-family:'Rajdhani',sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.8px;cursor:pointer;transition:background .18s}
+.btn-retry:hover{background:var(--accent);color:var(--dark)}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:var(--primary-lt);border-radius:4px}
 </style>
 </head>
+
 <body>
 
 <header class="topbar">
@@ -216,16 +223,23 @@ tbody td a:hover{text-decoration:underline;color:var(--accent)}
 
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   CRM LINI BOMBAS — index.html V2.0 — GitHub Pages
+   CRM LINI BOMBAS — index.html V1.1 — GitHub Pages
    Carga datos vía JSONP desde Apps Script publicado
-   ⚠️  REEMPLAZA la URL con la de tu despliegue de Apps Script
+
+   ⚠️  INSTRUCCIONES PARA LA URL:
+   1. En Apps Script → Implementar → Nueva implementación
+   2. Tipo: Aplicación web
+   3. Ejecutar como: Yo (tu cuenta de Google)
+   4. Quién tiene acceso: Cualquier persona
+   5. Copia la URL /exec y pégala abajo:
 ═══════════════════════════════════════════════════════════════ */
-var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbycLWWEWYIimwzMC09luJMMgcxUiX4ZqY3L0Cpp8giceVG4ec2AV7p0aNyZreWzgGE8/exec';
+var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwpO4Nat-ODTGGRbRBkZ2uR_bpI4v8tQSA1jHgKqfwsFmpQczorTb5ry9HnTtL7bNcx/exec';
 
 /* ─── Constantes de orden ─── */
 const MESES_ORD = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_ORD  = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+
 function normStr(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim(); }
 
 /* ─── Estado ─── */
@@ -253,24 +267,57 @@ function cbPasa(cbf, v){
 }
 
 /* ═══════════════════════════════════════════════
-   CARGA JSONP — igual que MAIA pero para 3 tabs
+   CARGA JSONP con reintento automático
 ═══════════════════════════════════════════════ */
-function cargarTab(tab){
+function mostrarError(tab, intento){
+  const ld = document.getElementById(tab+'-loader');
+  const tabNombres = { asi:'Reporte de Asistencia', bit:'Bitácora de Servicios', det:'Detalle de Servicios' };
+  ld.innerHTML =
+    '<div class="error-box">' +
+    '<strong>❌ Error de red al cargar ' + tabNombres[tab] + '</strong>' +
+    'No se pudo conectar con el servidor de datos.<br>' +
+    '<strong>Verifica lo siguiente en Apps Script:</strong>' +
+    '<ol>' +
+    '<li>Ve a <b>Implementar → Administrar implementaciones</b></li>' +
+    '<li>Asegúrate de que esté publicado como <b>Aplicación web</b></li>' +
+    '<li><b>Ejecutar como:</b> Yo (tu cuenta)</li>' +
+    '<li><b>Quién tiene acceso:</b> Cualquier persona</li>' +
+    '<li>Si hiciste cambios en el código, crea una <b>Nueva implementación</b> y actualiza la URL en este archivo</li>' +
+    '</ol>' +
+    '<button class="btn-retry" onclick="refreshTab(\'' + tab + '\')">🔄 Reintentar</button>' +
+    '</div>';
+  ld.style.display = 'flex';
+}
+
+function cargarTab(tab, intento){
+  intento = intento || 1;
   const ld = document.getElementById(tab+'-loader');
   const tc = document.getElementById(tab+'-tc');
-  ld.innerHTML = '<div class="spinner"></div><span>Cargando...</span>';
+  ld.innerHTML = '<div class="spinner"></div><span>Cargando' + (intento > 1 ? ' (intento '+intento+')' : '') + '...</span>';
   ld.style.display = 'flex';
   tc.style.display  = 'none';
 
   const accionMap = { asi:'getAsistenciaData', bit:'getBitacoraData', det:'getDetalleData' };
   const cbName    = 'liniCb_'+tab+'_'+Date.now();
 
-  const timeout = setTimeout(()=>{
-    ld.innerHTML = '<p style="color:#e74c3c;padding:20px">⚠️ Tiempo de espera agotado. Verifica la URL de Apps Script.</p>';
+  // Elimina scripts JSONP previos huérfanos del mismo tab
+  document.querySelectorAll('script[data-lini-tab="'+tab+'"]').forEach(function(el){ el.remove(); });
+
+  var respondio = false;
+
+  var timeout = setTimeout(function(){
+    if(respondio) return;
     delete window[cbName];
+    // Reintento automático una vez, luego muestra error
+    if(intento < 2){
+      cargarTab(tab, intento + 1);
+    } else {
+      mostrarError(tab, intento);
+    }
   }, 15000);
 
   window[cbName] = function(rows){
+    respondio = true;
     clearTimeout(timeout);
     delete window[cbName];
     S[tab].raw     = Array.isArray(rows) ? rows : [];
@@ -281,18 +328,25 @@ function cargarTab(tab){
     setUpdateDate();
   };
 
-  const s    = document.createElement('script');
-  s.src      = APPS_SCRIPT_URL + '?action=' + accionMap[tab] + '&callback=' + cbName;
-  s.onerror  = ()=>{
+  var s = document.createElement('script');
+  s.setAttribute('data-lini-tab', tab);
+  s.src = APPS_SCRIPT_URL + '?action=' + accionMap[tab] + '&callback=' + cbName + '&t=' + Date.now();
+  s.onerror = function(){
+    if(respondio) return;
+    respondio = true;
     clearTimeout(timeout);
-    ld.innerHTML = '<p style="color:#e74c3c;padding:20px">❌ Error de red. Verifica la URL o los permisos del despliegue.</p>';
     delete window[cbName];
+    if(intento < 2){
+      setTimeout(function(){ cargarTab(tab, intento + 1); }, 2000);
+    } else {
+      mostrarError(tab, intento);
+    }
   };
   document.head.appendChild(s);
 }
 
 function refreshTab(tab){
-  cargarTab(tab);
+  cargarTab(tab, 1);
 }
 
 /* ═══════════════════════════════════════════════
@@ -347,6 +401,7 @@ function rebuildAll(tab){
   buildSidebarCB(tab+'-f-nombre',  allNombres,  tab, 'nombre');
   buildSidebarCB(tab+'-f-unidad',  allUnidades, tab, 'unidad');
   buildSidebarCB(tab+'-f-hospital',allHosp,     tab, 'hospital');
+
   if(isD){
     const allAct = uniqSort(rowsExcluding(tab,raw,'actividad').map(r=>r.actividad));
     buildSidebarCB(tab+'-f-actividad', allAct, tab, 'actividad');
@@ -557,12 +612,13 @@ function switchTab(name,btn){
 /* ═══════════════════════════════════════════════
    INIT — carga los 3 tabs al arrancar
 ═══════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded',function(){
   setUpdateDate();
   cargarTab('asi');
   cargarTab('bit');
   cargarTab('det');
 });
 </script>
+
 </body>
 </html>
