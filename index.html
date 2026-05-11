@@ -561,6 +561,18 @@ function applyAndRender(tab){
   renderTable(tab, rows);
 }
 function esc(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* Convierte dd/MM/yyyy → dd-MM-yyyy */
+function fmtFecha(v){ return String(v||'').replace(/\//g,'-'); }
+/* Garantiza hora con ceros: 8:01:38 → 08:01:38 */
+function fmtHoraDisplay(v){
+  const s = String(v||'').trim();
+  if(!s) return '';
+  const parts = s.split(':');
+  parts[0] = parts[0].padStart(2,'0');
+  if(parts[1]) parts[1] = parts[1].padStart(2,'0');
+  if(parts[2]) parts[2] = parts[2].padStart(2,'0');
+  return parts.join(':');
+}
 function renderTable(tab, rows){
   const tc = document.getElementById(tab+'-tc');
   document.getElementById(tab+'-count').textContent = rows.length;
@@ -568,13 +580,13 @@ function renderTable(tab, rows){
   let head='', body='';
   if(tab==='asi'){
     head=`<tr><th>NOMBRE</th><th>FECHA</th><th>HORA ENTRADA</th><th>HORA SALIDA</th><th>UNIDAD</th><th>HOSPITAL</th><th>MOTIVO SALIDA JORNADA</th><th>UBICACIÓN ENTRADA</th><th>UBICACIÓN SALIDA</th></tr>`;
-    body=rows.map(r=>`<tr><td>${esc(r.nombre)}</td><td>${esc(r.fecha)}</td><td>${esc(r.horaE)}</td><td>${esc(r.horaS)}</td><td>${esc(r.unidad)}</td><td>${esc(r.hospital)}</td><td>${esc(r.motivo)}</td><td>${r.linkE?`<a href="${esc(r.linkE)}" target="_blank">📍 Ver</a>`:''}</td><td>${r.linkS?`<a href="${esc(r.linkS)}" target="_blank">📍 Ver</a>`:''}</td></tr>`).join('');
+    body=rows.map(r=>`<tr><td>${esc(r.nombre)}</td><td>${esc(fmtFecha(r.fecha))}</td><td>${esc(fmtHoraDisplay(r.horaE))}</td><td>${esc(fmtHoraDisplay(r.horaS))}</td><td>${esc(r.unidad)}</td><td>${esc(r.hospital)}</td><td>${esc(r.motivo)}</td><td>${r.linkE?`<a href="${esc(r.linkE)}" target="_blank">📍 Ver</a>`:''}</td><td>${r.linkS?`<a href="${esc(r.linkS)}" target="_blank">📍 Ver</a>`:''}</td></tr>`).join('');
   } else if(tab==='bit'){
     head=`<tr><th>NOMBRE</th><th>HOSPITAL</th><th>SERVICIO O SALIDA</th><th>FECHA</th><th>HORA ENTRADA</th><th>HORA SALIDA</th><th>UNIDAD</th><th>UBICACIÓN ENTRADA</th><th>UBICACIÓN SALIDA</th></tr>`;
-    body=rows.map(r=>`<tr><td>${esc(r.nombre)}</td><td>${esc(r.hospital)}</td><td>${esc(r.tipo)}</td><td>${esc(r.fecha)}</td><td>${esc(r.horaE)}</td><td>${esc(r.horaS)}</td><td>${esc(r.unidad)}</td><td>${r.linkE?`<a href="${esc(r.linkE)}" target="_blank">📍 Ver</a>`:''}</td><td>${r.linkS?`<a href="${esc(r.linkS)}" target="_blank">📍 Ver</a>`:''}</td></tr>`).join('');
+    body=rows.map(r=>`<tr><td>${esc(r.nombre)}</td><td>${esc(r.hospital)}</td><td>${esc(r.tipo)}</td><td>${esc(fmtFecha(r.fecha))}</td><td>${esc(fmtHoraDisplay(r.horaE))}</td><td>${esc(fmtHoraDisplay(r.horaS))}</td><td>${esc(r.unidad)}</td><td>${r.linkE?`<a href="${esc(r.linkE)}" target="_blank">📍 Ver</a>`:''}</td><td>${r.linkS?`<a href="${esc(r.linkS)}" target="_blank">📍 Ver</a>`:''}</td></tr>`).join('');
   } else {
     head=`<tr><th>NOMBRE</th><th>HOSPITAL</th><th>FECHA</th><th>SERVICIO</th><th>MOTIVO</th><th>ID FOLIO</th><th>ACTIVIDAD</th><th>NO. SERIE</th><th>CAMBIO ACCES.</th><th>DESCRIPCIÓN</th><th>RESPONSABLE</th></tr>`;
-    body=rows.map(r=>`<tr><td>${esc(r.usuario)}</td><td>${esc(r.hospital)}</td><td>${esc(r.fecha)}</td><td>${esc(r.servicio)}</td><td>${esc(r.motivo)}</td><td>${esc(r.folio)}</td><td>${esc(r.actividad)}</td><td>${esc(r.serie)}</td><td>${esc(r.cambio)}</td><td title="${esc(r.descripcion)}">${esc(r.descripcion.substring(0,50))}${r.descripcion.length>50?'…':''}</td><td>${esc(r.responsable)}</td></tr>`).join('');
+    body=rows.map(r=>`<tr><td>${esc(r.usuario)}</td><td>${esc(r.hospital)}</td><td>${esc(fmtFecha(r.fecha))}</td><td>${esc(r.servicio)}</td><td>${esc(r.motivo)}</td><td>${esc(r.folio)}</td><td>${esc(r.actividad)}</td><td>${esc(r.serie)}</td><td>${esc(r.cambio)}</td><td title="${esc(r.descripcion)}">${esc(r.descripcion.substring(0,50))}${r.descripcion.length>50?'…':''}</td><td>${esc(r.responsable)}</td></tr>`).join('');
   }
   tc.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
